@@ -1,0 +1,123 @@
+spring:
+  application:
+    name: payroll-service
+  #config:
+   # import: "optional:configserver:"
+  cloud:
+    stream:
+      default:
+        content-type:
+          application/json
+
+server:
+  port: 8084
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka,http://localhost:8763/eureka
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: http://localhost:9411/api/v2/spans
+
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.cloud.stream: DEBUG
+    org.springframework.integration: DEBUG
+    org.springframework.amqp: DEBUG
+
+---
+# 4. LOGICA: COREOGRAFIA
+spring:
+  config:
+    activate:
+      on-profile: choreography
+  cloud:
+    function:
+      definition: validateSalary
+    stream:
+      bindings:
+        validateSalary-in-0:
+          destination: employee-events
+          group: payroll-group
+        validateSalary-out-0:
+          destination: employee-results
+
+---
+# 5. LOGICA: ORQUESTRACAO
+spring:
+  config:
+    activate:
+      on-profile: orchestration
+  cloud:
+    function:
+      definition: processSalaryCommand
+    stream:
+      bindings:
+        processSalaryCommand-in-0:
+          destination: saga-commands
+          group: payroll-group
+        processSalaryCommand-out-0:
+          destination: saga-replies
+
+---
+# 6. INFRA: RABBITMQ
+spring:
+  config:
+    activate:
+      on-profile: rabbit
+  rabbitmq:
+    host: localhost
+    port: 5672
+  cloud:
+    stream:
+      default-binder: rabbit
+      bindings:
+        validateSalary-in-0:
+          destination: employee-events
+          group: payroll-group
+        validateSalary-out-0:
+          destination: employee-results
+      rabbit:
+        bindings:
+          # Entrada (Consumer)
+          validateSalary-in-0:
+            consumer:
+              exchangeType: topic
+              bindingRoutingKey: '#'
+              autoBindDlq: true
+
+          validateSalary-out-0:
+            producer:
+              exchangeType: topic
+              routingKeyExpression: headers['myRoutingKey']
+
+---
+# 7. INFRA: KAFKA
+spring:
+  config:
+    activate:
+      on-profile: kafka
+  cloud:
+    stream:
+      default-binder: kafka
+      kafka:
+        binder:
+          brokers: localhost:9092
+      bindings:
+        validateSalary-in-0:
+          binder: kafka
+        validateSalary-out-0:
+          binder: kafka
+        processSalaryCommand-in-0:
+          binder: kafka
+        processSalaryCommand-out-0:
+          binder: kafka
