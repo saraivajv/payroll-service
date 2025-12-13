@@ -1,13 +1,10 @@
 spring:
   application:
     name: payroll-service
-  #config:
-   # import: "optional:configserver:"
   cloud:
     stream:
       default:
-        content-type:
-          application/json
+        content-type: application/json
 
 server:
   port: 8084
@@ -17,7 +14,7 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
     service-url:
-      defaultZone: http://localhost:8761/eureka,http://localhost:8762/eureka,http://localhost:8763/eureka
+      defaultZone: http://localhost:8761/eureka
 
 management:
   tracing:
@@ -32,10 +29,10 @@ logging:
     org.springframework.web: INFO
     org.springframework.cloud.stream: DEBUG
     org.springframework.integration: DEBUG
-    org.springframework.amqp: DEBUG
+    org.springframework.kafka: DEBUG
 
 ---
-# 4. LOGICA: COREOGRAFIA
+# 4. LOGICA: COREOGRAFIA (Define OS NOMES dos Topicos)
 spring:
   config:
     activate:
@@ -52,7 +49,7 @@ spring:
           destination: employee-results
 
 ---
-# 5. LOGICA: ORQUESTRACAO
+# 5. LOGICA: ORQUESTRACAO (Define os Topicos da Saga)
 spring:
   config:
     activate:
@@ -80,28 +77,20 @@ spring:
   cloud:
     stream:
       default-binder: rabbit
-      bindings:
-        validateSalary-in-0:
-          destination: employee-events
-          group: payroll-group
-        validateSalary-out-0:
-          destination: employee-results
       rabbit:
         bindings:
-          # Entrada (Consumer)
           validateSalary-in-0:
             consumer:
               exchangeType: topic
               bindingRoutingKey: '#'
               autoBindDlq: true
-
           validateSalary-out-0:
             producer:
               exchangeType: topic
               routingKeyExpression: headers['myRoutingKey']
 
 ---
-# 7. INFRA: KAFKA
+# 7. INFRA: KAFKA (A Configuracao Nova)
 spring:
   config:
     activate:
@@ -112,12 +101,13 @@ spring:
       kafka:
         binder:
           brokers: localhost:9092
-      bindings:
-        validateSalary-in-0:
-          binder: kafka
-        validateSalary-out-0:
-          binder: kafka
-        processSalaryCommand-in-0:
-          binder: kafka
-        processSalaryCommand-out-0:
-          binder: kafka
+          auto-create-topics: true
+          replication-factor: 1
+        bindings:
+          validateSalary-in-0:
+            consumer:
+              startOffset: latest
+
+          processSalaryCommand-in-0:
+            consumer:
+              startOffset: latest
