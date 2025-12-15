@@ -60,8 +60,8 @@ spring:
     stream:
       bindings:
         processSalaryCommand-in-0:
-          destination: saga-commands
-          group: payroll-group
+          destination: payroll-commands
+          group: payroll-orchestration-group
         processSalaryCommand-out-0:
           destination: saga-replies
 
